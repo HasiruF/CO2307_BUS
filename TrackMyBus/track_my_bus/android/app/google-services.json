@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "749131221978",
+    "project_id": "co2307-cbeea",
+    "storage_bucket": "co2307-cbeea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749131221978:android:4cb4dc27b9cc6e59df8ee3",
+        "android_client_info": {
+          "package_name": "com.CO2307.TrackMyBusFb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUcntiPcdGGNF7VyMgrBbmEoxoTT2U7Kc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
