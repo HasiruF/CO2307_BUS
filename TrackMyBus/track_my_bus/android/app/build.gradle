@@ -6,8 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.CO2307.TrackMyBusFb"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.example.track_my_bus"
+    compileSdkVersion 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,28 +20,30 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.CO2307.TrackMyBusFb"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdkVersion 23
+        targetSdk 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.debug
         }
     }
+}
+
+dependencies {
+    // Firebase and Google Sign-In dependencies
+    implementation 'com.google.firebase:firebase-auth:23.0.5'  // Firebase Authentication
+    implementation 'com.google.android.gms:play-services-auth:20.5 .0'  // Google Sign-In
+    implementation platform('com.google.firebase:firebase-bom:32.1.0')  // Firebase BOM for version management
+    //implementation 'com.google.firebase:firebase-core:22.1.0'  // Firebase Core
 }
 
 flutter {
     source = "../.."
 }
 
-apply plugin: 'com.android.application'
-apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.gms.google-services' 
