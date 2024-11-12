@@ -1,33 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'registration_screen.dart';
 import 'home_screen.dart';
 
-class RegistrationScreen extends StatefulWidget {
+class LoginPage extends StatefulWidget {
   @override
-  _RegistrationScreenState createState() => _RegistrationScreenState();
+  _LoginPageState createState() => _LoginPageState();
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
+class _LoginPageState extends State<LoginPage> {
   final _usernameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  Future<void> _register() async {
+  void _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       try {
-        // Register user with Firebase Authentication
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+        // authenticate with Firebase
+        UserCredential userCredential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+                email: _usernameController.text.trim(),
+                password: _passwordController.text.trim());
 
-        // Save user data to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user?.uid).set({
-          'username': _usernameController.text.trim(),
-          'email': _emailController.text.trim(),
-        });
+        
+        print('Login successful: ${userCredential.user?.email}');
         String userEmail = userCredential.user!.email!;
 
         
@@ -37,13 +34,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             builder: (context) => HomePage(userEmail: userEmail),
           ),
         );
-        print('User registered and details saved to Firestore');
-
-        
-      } catch (e) {
-        print('Registration failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Login successful')),
+        );
+      } catch (e) {
+        // error if login fails
+        print('Error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: $e')),
         );
       }
     }
@@ -53,7 +51,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Register'),
+        title: Text('Login'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -62,7 +60,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Username input field
               TextFormField(
                 controller: _usernameController,
                 decoration: InputDecoration(labelText: 'Username'),
@@ -73,20 +70,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   return null;
                 },
               ),
-
-              // Email input field
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(labelText: 'Email'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an email';
-                  }
-                  return null;
-                },
-              ),
-
-              // Password input field
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -95,18 +78,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a password';
                   }
-                  if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
                   return null;
                 },
               ),
-
-              // Register button
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _register,
-                child: Text('Register'),
+                onPressed: _login,
+                child: Text('Login'),
+              ),
+              SizedBox(height: 10),
+              TextButton(
+                onPressed: () {
+                  // Navigate to the Registration Page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegistrationScreen()),
+                  );
+                },
+                child: Text('Go to Registration Page'),
               ),
             ],
           ),
