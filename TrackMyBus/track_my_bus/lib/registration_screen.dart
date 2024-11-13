@@ -28,13 +28,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
         });
-        String userEmail = userCredential.user!.email!;
+        
 
         
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomePage(userEmail: userEmail),
+            builder: (context) => HomePage(userId: userCredential.user!.uid),
           ),
         );
         print('User registered and details saved to Firestore');

@@ -24,15 +24,17 @@ class MyApp extends StatelessWidget {
 class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    User? user = FirebaseAuth.instance.currentUser;
-
-    if (user != null) {
-      // If the user is logged in
-      return HomePage(userEmail: user.email!); 
-    } else {
-      // If the user is not logged in
-      return LoginPage();
-    }
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // If the user is logged in
+        if (snapshot.hasData && snapshot.data != null) {
+          return HomePage(userId: snapshot.data!.uid);
+        }
+        // If not logged in
+        return LoginPage();
+      },
+    );
   }
   
 }

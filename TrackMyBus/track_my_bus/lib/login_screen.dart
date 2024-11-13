@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomePage(userEmail: userEmail),
+            builder: (context) => HomePage(userId: userCredential.user!.uid),
           ),
         );
         ScaffoldMessenger.of(context).showSnackBar(
@@ -62,10 +62,10 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               TextFormField(
                 controller: _usernameController,
-                decoration: InputDecoration(labelText: 'Username'),
+                decoration: InputDecoration(labelText: 'UserEmail'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a username';
+                    return 'Please enter a Email';
                   }
                   return null;
                 },
