@@ -45,6 +45,9 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
             .doc('bus${widget.busId}-${widget.date}-${widget.timeSlot}')
             .set({
           'bookedSeats': {}, // Initialize with an empty map
+          'busId': widget.busId,
+          'date': widget.date,
+          'timeSlot': widget.timeSlot,
         });
 
         // After creating the document, update the state with the empty bookedSeats map
