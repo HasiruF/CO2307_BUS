@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'seatbooking_screen.dart';
+import 'driver_home_screen.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -17,26 +18,56 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String userName = '';
   String userEmail = '';
+  String userType = ''; 
 
-  // The current index of the selected tab
+  //selected tab
   int _currentIndex = 0;
 
-  // List of pages for each BottomNavigationBar item
+  //tab navigtion bar
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the pages list after widget is initialized
+    _checkUserType(); // Check user type 
     _pages = [
       UserBookingsPage(
-        userId: widget.userId
-        ),
+        userId: widget.userId,
+      ),
       SelectionScreen(
-        userId: widget.userId
-        ),
+        userId: widget.userId,
+      ),
       ProfilePage(),
     ];
+  }
+
+  // Check the user type and redirect if driver
+  Future<void> _checkUserType() async {
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .get();
+
+      if (userDoc.exists) {
+        userType = userDoc['usertype'];
+        if (userType == 'Driver') {
+          //Navigate to driverHomePage
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => DriverHomePage(userId: widget.userId)),
+          );
+        } else {
+          // Fetch and display user details for "Client"
+          setState(() {
+            userName = userDoc['username'];
+            userEmail = userDoc['email'];
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking user type: $e');
+    }
   }
 
   void _onTabTapped(int index) {
@@ -45,32 +76,13 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-
-  Future<void> _fetchUserDetails() async {
-    try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .get();
-
-      if (userDoc.exists) {
-        setState(() {
-          userName = userDoc['username'];
-          userEmail = userDoc['email'];
-        });
-      }
-    } catch (e) {
-      print('Error fetching user details: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.black26,
+        backgroundColor: Colors.blue,
         title: Text(
-          'Welcome, $userName'
+          'Welcome, $userName',
         ),
         actions: [
           // Sign out button in the AppBar
@@ -89,10 +101,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: _pages[_currentIndex],  // Show the selected page
+      body: _pages[_currentIndex], // Show the selected page
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,  // Current selected index
-        onTap: _onTabTapped,  // Update selected tab
+        currentIndex: _currentIndex, // Current selected index
+        onTap: _onTabTapped, // Update selected tab
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.my_library_books),
@@ -124,6 +136,8 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+
+
 class SelectionScreen extends StatefulWidget {
   final String userId;
 
@@ -134,12 +148,36 @@ class SelectionScreen extends StatefulWidget {
 }
 
 class _SelectionScreenState extends State<SelectionScreen> {
-  String selectedBusId = '1';
-  String selectedDate = '2024-11-15'; 
+  String? selectedRoute;
+  String selectedDate = '2024-11-15';
   String selectedTimeSlot = 'morning';
-
-  final List<String> busIds = ['1', '2', '3', '4'];
+  List<Map<String, String>> busRoutes = []; 
   final List<String> timeSlots = ['morning', 'evening'];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBusRoutes();
+  }
+
+  Future<void> _fetchBusRoutes() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('buses').get();
+      setState(() {
+        busRoutes = snapshot.docs.map((doc) {
+          return {
+            'route_name': (doc['route_name'] ?? 'Unnamed Route').toString(),
+            'busId': doc.id.toString(),
+          };
+        }).toList();
+        if (busRoutes.isNotEmpty) {
+          selectedRoute = busRoutes[0]['route_name'];
+        }
+      });
+    } catch (e) {
+      print('Error fetching bus routes: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,22 +190,24 @@ class _SelectionScreenState extends State<SelectionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Bus ID Dropdown
-            Text('Select Bus ID:'),
-            DropdownButton<String>(
-              value: selectedBusId,
-              onChanged: (newValue) {
-                setState(() {
-                  selectedBusId = newValue!;
-                });
-              },
-              items: busIds.map<DropdownMenuItem<String>>((String busId) {
-                return DropdownMenuItem<String>(
-                  value: busId,
-                  child: Text(busId),
-                );
-              }).toList(),
-            ),
+            // Bus Route Dropdown
+            Text('Select Bus Route:'),
+            busRoutes.isEmpty
+                ? CircularProgressIndicator()
+                : DropdownButton<String>(
+                    value: selectedRoute,
+                    onChanged: (newValue) {
+                      setState(() {
+                        selectedRoute = newValue!;
+                      });
+                    },
+                    items: busRoutes.map<DropdownMenuItem<String>>((route) {
+                      return DropdownMenuItem<String>(
+                        value: route['route_name'],
+                        child: Text(route['route_name']!),
+                      );
+                    }).toList(),
+                  ),
             SizedBox(height: 20),
 
             // Date Picker
@@ -176,10 +216,10 @@ class _SelectionScreenState extends State<SelectionScreen> {
               onPressed: () async {
                 DateTime? pickedDate = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now().add(Duration(days: 1)), //Tomorrow
-                  firstDate: DateTime.now().add(Duration(days: 1)),   //Tomorrow
-                  lastDate: DateTime.now().add(Duration(days: 90)),   //i n 3 months
-                            );
+                  initialDate: DateTime.now().add(Duration(days: 1)), // Tomorrow
+                  firstDate: DateTime.now().add(Duration(days: 1)),   // Tomorrow
+                  lastDate: DateTime.now().add(Duration(days: 3)),   // In 3 days
+                );
 
                 if (pickedDate != null) {
                   setState(() {
@@ -215,19 +255,22 @@ class _SelectionScreenState extends State<SelectionScreen> {
             // Button to navigate to the booking page
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SeatSelectionPage(
-                        busId: selectedBusId,
-                        date: selectedDate,
-                        timeSlot: selectedTimeSlot,
-                        userId: widget.userId,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: selectedRoute == null
+                    ? null
+                    : () {
+                        String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SeatSelectionPage(
+                              busId: busId,
+                              date: selectedDate,
+                              timeSlot: selectedTimeSlot,
+                              userId: widget.userId,
+                            ),
+                          ),
+                        );
+                      },
                 child: Text('Go to Seat Selection'),
               ),
             ),
@@ -237,6 +280,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
     );
   }
 }
+
 
 
 class UserBookingsPage extends StatefulWidget {
@@ -253,20 +297,30 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
     List<Map<String, dynamic>> bookings = [];
 
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('seats').get();
-      for (var doc in snapshot.docs) {
+      QuerySnapshot seatSnapshot = await FirebaseFirestore.instance.collection('seats').get();
+      for (var doc in seatSnapshot.docs) {
         Map<String, dynamic> seatData = doc.data() as Map<String, dynamic>;
         Map<String, dynamic> bookedSeats = seatData['bookedSeats'] ?? {};
 
         // Check if the userId exists in the bookedSeats map
         if (bookedSeats.containsValue(widget.userId)) {
-          bookings.add({
-            'documentId': doc.id,
-            'busId': seatData['busId'],
-            'date': seatData['date'],
-            'timeSlot': seatData['timeSlot'],
-            'seatNumbers': bookedSeats.keys.where((key) => bookedSeats[key] == widget.userId).toList(),
-          });
+          // Fetch the corresponding bus data
+          String busId = seatData['busId'];
+          DocumentSnapshot busDoc = await FirebaseFirestore.instance.collection('buses').doc(busId).get();
+
+          if (busDoc.exists) {
+            String routeName = busDoc['route_name'] ?? 'Unknown Route';
+            String busNumber = busDoc['bus_number'] ?? 'Unknown Number';
+
+            bookings.add({
+              'documentId': doc.id,
+              'routeName': routeName,
+              'busNumber': busNumber,
+              'date': seatData['date'],
+              'timeSlot': seatData['timeSlot'],
+              'seatNumbers': bookedSeats.keys.where((key) => bookedSeats[key] == widget.userId).toList(),
+            });
+          }
         }
       }
     } catch (e) {
@@ -275,6 +329,7 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
 
     return bookings;
   }
+
 
   Future<void> _cancelBooking(String documentId, List<String> seatNumbers) async {
     try {
@@ -321,32 +376,27 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
             return Center(child: Text('Error loading bookings'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No bookings found'));
+          } else {
+            List<Map<String, dynamic>> bookings = snapshot.data!;
+            return ListView.builder(
+              itemCount: bookings.length,
+              itemBuilder: (context, index) {
+                var booking = bookings[index];
+                return ListTile(
+                  title: Text('${booking['routeName']} - ${booking['busNumber']}'),
+                  subtitle: Text('Date: ${booking['date']}, Time Slot: ${booking['timeSlot']}'),
+                  trailing: IconButton(
+                    icon: Icon(
+                      Icons.delete,
+                      color: Colors.red,),
+                    onPressed: () {
+                      _cancelBooking(booking['documentId'], List<String>.from(booking['seatNumbers']));
+                    },
+                  ),
+                );
+              },
+            );
           }
-
-          List<Map<String, dynamic>> bookings = snapshot.data!;
-
-          return ListView.builder(
-            itemCount: bookings.length,
-            itemBuilder: (context, index) {
-              final booking = bookings[index];
-              return ListTile(
-                title: Text('Bus ID: ${booking['busId']}'),
-                subtitle: Text('Date: ${booking['date']} | Time Slot: ${booking['timeSlot']}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Seats: ${booking['seatNumbers'].join(', ')}'),
-                    IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        _cancelBooking(booking['documentId'], booking['seatNumbers']);
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
         },
       ),
     );

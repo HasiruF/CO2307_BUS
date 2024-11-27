@@ -27,6 +27,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         await FirebaseFirestore.instance.collection('users').doc(userCredential.user?.uid).set({
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
+          'usertype': "Client",
         });
         
 

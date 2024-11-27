@@ -64,6 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '749131221978',
     projectId: 'co2307-cbeea',
     storageBucket: 'co2307-cbeea.firebasestorage.app',
+    androidClientId: '749131221978-9bolv12cksc44mun1lktcviao95kajo8.apps.googleusercontent.com',
+    iosClientId: '749131221978-5q1cp6greo34qhp367aqfvm1j97tt182.apps.googleusercontent.com',
     iosBundleId: 'com.example.trackMyBus',
   );
 
@@ -73,6 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '749131221978',
     projectId: 'co2307-cbeea',
     storageBucket: 'co2307-cbeea.firebasestorage.app',
+    androidClientId: '749131221978-9bolv12cksc44mun1lktcviao95kajo8.apps.googleusercontent.com',
+    iosClientId: '749131221978-5q1cp6greo34qhp367aqfvm1j97tt182.apps.googleusercontent.com',
     iosBundleId: 'com.example.trackMyBus',
   );
 
@@ -85,4 +89,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'co2307-cbeea.firebasestorage.app',
     measurementId: 'G-CJ4NQKBTPM',
   );
+
 }

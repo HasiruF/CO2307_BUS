@@ -12,7 +12,20 @@
           "package_name": "com.CO2307.TrackMyBusFb"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "749131221978-9bolv12cksc44mun1lktcviao95kajo8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.CO2307.TrackMyBusFb",
+            "certificate_hash": "67b8a9fce92e1c90fa719e5ec4de6702a7fa17d8"
+          }
+        },
+        {
+          "client_id": "749131221978-1o887u6hlu5nmlrajm7jfrn0lknrs20r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDUcntiPcdGGNF7VyMgrBbmEoxoTT2U7Kc"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "749131221978-1o887u6hlu5nmlrajm7jfrn0lknrs20r.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "749131221978-5q1cp6greo34qhp367aqfvm1j97tt182.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.trackMyBus"
+              }
+            }
+          ]
         }
       }
     }
