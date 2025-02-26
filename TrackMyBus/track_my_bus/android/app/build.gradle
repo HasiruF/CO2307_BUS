@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.CO2307.TrackMyBusFb"
         minSdkVersion 23
-        targetSdk 34
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
