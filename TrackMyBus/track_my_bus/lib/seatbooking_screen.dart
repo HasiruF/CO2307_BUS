@@ -6,8 +6,17 @@ class SeatSelectionPage extends StatefulWidget {
   final String date;
   final String timeSlot;
   final String userId;
+  final String gettingOnHalt;
+  final String gettingOffHalt;
 
-  SeatSelectionPage({required this.busId, required this.date, required this.timeSlot, required this.userId});
+  SeatSelectionPage({
+    required this.busId,
+    required this.date,
+    required this.timeSlot,
+    required this.userId,
+    required this.gettingOnHalt,
+    required this.gettingOffHalt,
+  });
 
   @override
   _SeatSelectionPageState createState() => _SeatSelectionPageState();
@@ -61,7 +70,6 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     }
   }
 
-
   // book a seat
   Future<void> _bookSeat(int seatNumber) async {
     try {
@@ -73,14 +81,26 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
         return;
       }
 
-      // Firestore update the seat booking status
+      // Get the indices of getting on and getting off halts
+      int gettingOnHaltIndex = int.parse(widget.gettingOnHalt.split(' ')[1]) - 1; // Convert halt name to index
+      int gettingOffHaltIndex = int.parse(widget.gettingOffHalt.split(' ')[1]) - 1;
+
+      // Firestore update the seat booking status with getting on and getting off halt indices
       await FirebaseFirestore.instance.collection('seats').doc('bus${widget.busId}-${widget.date}-${widget.timeSlot}').update({
-        'bookedSeats.$seatNumber': widget.userId,  
+        'bookedSeats.$seatNumber': {
+          'userId': widget.userId,
+          'gettingOnHaltIndex': gettingOnHaltIndex,
+          'gettingOffHaltIndex': gettingOffHaltIndex,
+        },  
       });
 
       // Update local state to reflect booking
       setState(() {
-        bookedSeats[seatNumber.toString()] = widget.userId; 
+        bookedSeats[seatNumber.toString()] = {
+          'userId': widget.userId,
+          'gettingOnHaltIndex': gettingOnHaltIndex,
+          'gettingOffHaltIndex': gettingOffHaltIndex,
+        };
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'seatbooking_screen.dart';
 import 'driver_home_screen.dart';
+import 'halt_selection_screen.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -149,9 +150,11 @@ class SelectionScreen extends StatefulWidget {
 
 class _SelectionScreenState extends State<SelectionScreen> {
   String? selectedRoute;
+  String? selectedOnHalt;
+  String? selectedOffHalt;
   String selectedDate = '2024-11-15';
   String selectedTimeSlot = 'morning';
-  List<Map<String, String>> busRoutes = []; 
+  List<Map<String, String>> busRoutes = [];
   final List<String> timeSlots = ['morning', 'evening'];
 
   @override
@@ -177,6 +180,16 @@ class _SelectionScreenState extends State<SelectionScreen> {
     } catch (e) {
       print('Error fetching bus routes: $e');
     }
+  }
+
+  void _onHaltSelected(int haltIndex, String haltType) {
+    setState(() {
+      if (haltType == 'gettingOn') {
+        selectedOnHalt = 'Halt ${haltIndex + 1}';
+      } else if (haltType == 'gettingOff') {
+        selectedOffHalt = 'Halt ${haltIndex + 1}';
+      }
+    });
   }
 
   @override
@@ -250,12 +263,55 @@ class _SelectionScreenState extends State<SelectionScreen> {
               }).toList(),
             ),
 
+            // Getting On Halt Button
+            ElevatedButton(
+              onPressed: selectedRoute == null
+                  ? null
+                  : () {
+                      String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MapSelectionScreen(
+                            busId: busId,
+                            userId: widget.userId,
+                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOn'), // Pass 'gettingOn' halt type
+                          ),
+                        ),
+                      );
+                    },
+              child: Text('Select Getting On Halt'),
+            ),
+            Text('Selected Getting On Halt: $selectedOnHalt'),
+
+            SizedBox(height: 20),
+
+            // Getting Off Halt Button
+            ElevatedButton(
+              onPressed: selectedRoute == null || selectedOnHalt == null
+                  ? null
+                  : () {
+                      String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MapSelectionScreen(
+                            busId: busId,
+                            userId: widget.userId,
+                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOff'), // Pass 'gettingOff' halt type
+                          ),
+                        ),
+                      );
+                    },
+              child: Text('Select Getting Off Halt'),
+            ),
+            Text('Selected Getting Off Halt: $selectedOffHalt'),
             Spacer(),
 
             // Button to navigate to the booking page
             Center(
               child: ElevatedButton(
-                onPressed: selectedRoute == null
+                onPressed: selectedRoute == null || selectedOnHalt == null || selectedOffHalt == null
                     ? null
                     : () {
                         String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
@@ -267,6 +323,8 @@ class _SelectionScreenState extends State<SelectionScreen> {
                               date: selectedDate,
                               timeSlot: selectedTimeSlot,
                               userId: widget.userId,
+                              gettingOnHalt: selectedOnHalt!,
+                              gettingOffHalt: selectedOffHalt!,
                             ),
                           ),
                         );
@@ -282,7 +340,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
 }
 
 
-
 class UserBookingsPage extends StatefulWidget {
   final String userId;
 
@@ -293,33 +350,43 @@ class UserBookingsPage extends StatefulWidget {
 }
 
 class _UserBookingsPageState extends State<UserBookingsPage> {
+  // Fetch user bookings asynchronously
   Future<List<Map<String, dynamic>>> _fetchUserBookings() async {
     List<Map<String, dynamic>> bookings = [];
 
     try {
+      // Fetch all seats data from Firestore
       QuerySnapshot seatSnapshot = await FirebaseFirestore.instance.collection('seats').get();
       for (var doc in seatSnapshot.docs) {
         Map<String, dynamic> seatData = doc.data() as Map<String, dynamic>;
         Map<String, dynamic> bookedSeats = seatData['bookedSeats'] ?? {};
 
-        // Check if the userId exists in the bookedSeats map
-        if (bookedSeats.containsValue(widget.userId)) {
-          // Fetch the corresponding bus data
-          String busId = seatData['busId'];
-          DocumentSnapshot busDoc = await FirebaseFirestore.instance.collection('buses').doc(busId).get();
+        // Iterate through the bookedSeats map
+        for (var entry in bookedSeats.entries) {
+          Map<String, dynamic> seatDetails = entry.value;
 
-          if (busDoc.exists) {
-            String routeName = busDoc['route_name'] ?? 'Unknown Route';
-            String busNumber = busDoc['bus_number'] ?? 'Unknown Number';
+          // Check if the userId exists inside the nested maps (6, 7, etc.)
+          if (seatDetails['userId'] == widget.userId) {
+            // Fetch the corresponding bus data
+            String busId = seatData['busId'];
+            DocumentSnapshot busDoc = await FirebaseFirestore.instance.collection('buses').doc(busId).get();
 
-            bookings.add({
-              'documentId': doc.id,
-              'routeName': routeName,
-              'busNumber': busNumber,
-              'date': seatData['date'],
-              'timeSlot': seatData['timeSlot'],
-              'seatNumbers': bookedSeats.keys.where((key) => bookedSeats[key] == widget.userId).toList(),
-            });
+            if (busDoc.exists) {
+              String routeName = busDoc['route_name'] ?? 'Unknown Route';
+              String busNumber = busDoc['bus_number'] ?? 'Unknown Number';
+
+              // Add to bookings list
+              bookings.add({
+                'documentId': doc.id,
+                'routeName': routeName,
+                'busNumber': busNumber,
+                'date': seatData['date'],
+                'timeSlot': seatData['timeSlot'],
+                'seatNumber': entry.key,  // Storing the seat number as well
+                'gettingOnHalt': seatData['gettingOnHaltIndex'],
+                'gettingOffHalt': seatData['gettingOffHaltIndex'],
+              });
+            }
           }
         }
       }
@@ -330,8 +397,8 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
     return bookings;
   }
 
-
-  Future<void> _cancelBooking(String documentId, List<String> seatNumbers) async {
+  // Cancel booking asynchronously
+  Future<void> _cancelBooking(String documentId, String seatNumber) async {
     try {
       DocumentReference docRef = FirebaseFirestore.instance.collection('seats').doc(documentId);
       DocumentSnapshot docSnapshot = await docRef.get();
@@ -340,10 +407,8 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
         Map<String, dynamic> seatData = docSnapshot.data() as Map<String, dynamic>;
         Map<String, dynamic> bookedSeats = seatData['bookedSeats'] ?? {};
 
-        // Remove bookinggs
-        for (String seatNumber in seatNumbers) {
-          bookedSeats.remove(seatNumber);
-        }
+        // Remove booking for the specified seat
+        bookedSeats.remove(seatNumber);
 
         // Update Firestore doc
         await docRef.update({'bookedSeats': bookedSeats});
@@ -367,7 +432,7 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
       appBar: AppBar(
         title: Text('My Bookings'),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Map<String, dynamic>>>(  // FutureBuilder to fetch bookings
         future: _fetchUserBookings(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -378,7 +443,8 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
             return Center(child: Text('No bookings found'));
           } else {
             List<Map<String, dynamic>> bookings = snapshot.data!;
-            return ListView.builder(
+
+            return ListView.builder(  // ListView for displaying bookings
               itemCount: bookings.length,
               itemBuilder: (context, index) {
                 var booking = bookings[index];
@@ -386,11 +452,9 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
                   title: Text('${booking['routeName']} - ${booking['busNumber']}'),
                   subtitle: Text('Date: ${booking['date']}, Time Slot: ${booking['timeSlot']}'),
                   trailing: IconButton(
-                    icon: Icon(
-                      Icons.delete,
-                      color: Colors.red,),
+                    icon: Icon(Icons.delete, color: Colors.red),
                     onPressed: () {
-                      _cancelBooking(booking['documentId'], List<String>.from(booking['seatNumbers']));
+                      _cancelBooking(booking['documentId'], booking['seatNumber']);
                     },
                   ),
                 );

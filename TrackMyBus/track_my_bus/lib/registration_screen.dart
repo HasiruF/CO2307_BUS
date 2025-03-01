@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class RegistrationScreen extends StatefulWidget {
   @override
@@ -17,30 +18,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       try {
+        // Check if location permission is granted
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        // Request permission if not granted
+        permission = await Geolocator.requestPermission();
+      }
         // Register user with Firebase Authentication
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
-        // Save user data to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user?.uid).set({
+        String uid = userCredential.user!.uid;
+
+        // Get the user's current location
+        Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+        // Save user data to Firestore with GeoPoint
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
           'usertype': "Client",
+          'location': GeoPoint(position.latitude, position.longitude),  // Firestore GeoPoint
         });
-        
 
-        
+        // Navigate to HomePage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomePage(userId: userCredential.user!.uid),
+            builder: (context) => HomePage(userId: uid),
           ),
         );
         print('User registered and details saved to Firestore');
 
-        
       } catch (e) {
         print('Registration failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(

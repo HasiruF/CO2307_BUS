@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart'; 
 import 'registration_screen.dart';
 import 'home_screen.dart';
 
@@ -14,20 +15,47 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  Future<void> _updateUserLocation(String userId) async {
+    try {
+      // Check if location permission is granted
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        // Request permission if not granted
+        permission = await Geolocator.requestPermission();
+      }
+      // Get current location
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      // Get Firestore instance
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+      // Update the location field for the user
+      await firestore.collection('users').doc(userId).update({
+        'location': GeoPoint(position.latitude, position.longitude), // Set the location as GeoPoint
+      });
+
+      print('User location updated');
+    } catch (e) {
+      print('Error updating location: $e');
+    }
+  }
+
   void _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       try {
-        // authenticate with Firebase
+        // Authenticate with Firebase
         UserCredential userCredential = await FirebaseAuth.instance
             .signInWithEmailAndPassword(
                 email: _usernameController.text.trim(),
                 password: _passwordController.text.trim());
 
-        
         print('Login successful: ${userCredential.user?.email}');
         String userEmail = userCredential.user!.email!;
 
-        
+        // Update the user's location in Firestore
+        await _updateUserLocation(userCredential.user!.uid);
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -38,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
           SnackBar(content: Text('Login successful')),
         );
       } catch (e) {
-        // error if login fails
+        // Error if login fails
         print('Error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: $e')),
