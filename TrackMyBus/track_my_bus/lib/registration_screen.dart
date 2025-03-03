@@ -12,26 +12,83 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  String _verificationId = "";
+  bool _otpSent = false;
+
+  /// Send OTP to the provided phone number
+  void _sendOTP() async {
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: _phoneController.text.trim(),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Auto-retrieval scenario (for some devices)
+          await _auth.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('OTP Verification Failed: ${e.message}')),
+          );
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _otpSent = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('OTP sent to ${_phoneController.text}')),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sending OTP: $e')),
+      );
+    }
+  }
+
+  /// Verify the OTP entered by the user
+  void _verifyOTP() async {
+    try {
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId,
+        smsCode: _otpController.text.trim(),
+      );
+      await _auth.signInWithCredential(credential);
+      _register();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid OTP. Please try again.')),
+      );
+    }
+  }
 
   Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       try {
         // Register user with Firebase Authentication
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        UserCredential userCredential =
+            await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
         // Save user data to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user?.uid).set({
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user?.uid)
+            .set({
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
           'usertype': "Client",
         });
-        
 
-        
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -40,11 +97,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
         print('User registered and details saved to Firestore');
 
-        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registration Successful!')),
+        );
       } catch (e) {
         print('Registration failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Registration failed: $e')),
         );
       }
     }
@@ -103,12 +162,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 },
               ),
 
-              // Register button
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _register,
-                child: Text('Register'),
+              TextFormField(
+                controller: _phoneController,
+                decoration: InputDecoration(labelText: 'Phone Number'),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a phone number';
+                  }
+                  return null;
+                },
               ),
+
+              // Register button
+              SizedBox(height: 10),
+              !_otpSent
+                  ? ElevatedButton(
+                      onPressed: _sendOTP,
+                      child: Text('Send OTP'),
+                    )
+                  : Column(
+                      children: [
+                        TextFormField(
+                          controller: _otpController,
+                          decoration: InputDecoration(labelText: 'Enter OTP'),
+                          keyboardType: TextInputType.number,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Enter the OTP' : null,
+                        ),
+                        SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: _verifyOTP,
+                          child: Text('Verify OTP & Register'),
+                        ),
+                      ],
+                    ),
             ],
           ),
         ),

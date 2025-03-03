@@ -23,11 +23,9 @@ class _LoginPageState extends State<LoginPage> {
                 email: _usernameController.text.trim(),
                 password: _passwordController.text.trim());
 
-        
         print('Login successful: ${userCredential.user?.email}');
         String userEmail = userCredential.user!.email!;
 
-        
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -92,7 +90,8 @@ class _LoginPageState extends State<LoginPage> {
                   // Navigate to the Registration Page
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => RegistrationScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => RegistrationScreen()),
                   );
                 },
                 child: Text('Go to Registration Page'),
