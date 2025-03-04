@@ -168,7 +168,11 @@ class _SelectionScreenState extends State<SelectionScreen> {
 
   Future<void> _fetchBusRoutes() async {
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('buses').get();
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('buses')
+          .where('clients', arrayContains: widget.userId) 
+          .get();
+
       setState(() {
         busRoutes = snapshot.docs.map((doc) {
           return {
@@ -176,6 +180,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
             'busId': doc.id.toString(),
           };
         }).toList();
+
         if (busRoutes.isNotEmpty) {
           selectedRoute = busRoutes[0]['route_name'];
         }

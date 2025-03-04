@@ -14,8 +14,8 @@ class SeatViewerPage extends StatefulWidget {
 
 class _SeatViewerPageState extends State<SeatViewerPage> {
   late Map<String, dynamic> bookedSeats;
-  bool isLoading = true; // Flag to indicate loading state
-  Map<String, String> userNames = {}; // Map to store userId -> username mapping
+  bool isLoading = true; 
+  Map<String, String> userNames = {}; 
 
   @override
   void initState() {
@@ -26,51 +26,53 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
 
   // Fetching seat details
   Future<void> _fetchSeatDetails() async {
-    try {
-      DocumentSnapshot seatDoc = await FirebaseFirestore.instance
+  try {
+    DocumentSnapshot seatDoc = await FirebaseFirestore.instance
+        .collection('seats')
+        .doc('bus${widget.busId}-${widget.date}-${widget.timeSlot}')
+        .get();
+
+    if (seatDoc.exists) {
+      // If the document exists, update the bookedSeats map
+      setState(() {
+        bookedSeats = Map<String, dynamic>.from(seatDoc['bookedSeats'] ?? {});
+        isLoading = false; // Set loading to false once data is fetched
+      });
+
+      // Fetch usernames for the booked seats
+      _fetchUsernames();
+    } else {
+      // Create a new seat document if it doesn't exist
+      await FirebaseFirestore.instance
           .collection('seats')
           .doc('bus${widget.busId}-${widget.date}-${widget.timeSlot}')
-          .get();
+          .set({
+        'bookedSeats': {}, 
+        'busId': widget.busId,
+        'date': widget.date,
+        'timeSlot': widget.timeSlot,
+      });
 
-      if (seatDoc.exists) {
-        // If the document exists, update the bookedSeats map
-        setState(() {
-          bookedSeats = Map<String, dynamic>.from(seatDoc['bookedSeats'] ?? {});
-          isLoading = false; // Set loading to false once data is fetched
-        });
-
-        // Fetch usernames for the booked seats
-        _fetchUsernames();
-      } else {
-        // If the document doesn't exist, create it with an empty 'bookedSeats' map
-        await FirebaseFirestore.instance
-            .collection('seats')
-            .doc('bus${widget.busId}-${widget.date}-${widget.timeSlot}')
-            .set({
-          'bookedSeats': {}, // Initialize with an empty map
-          'busId': widget.busId,
-          'date': widget.date,
-          'timeSlot': widget.timeSlot,
-        });
-
-        // After creating the document, update the state with the empty bookedSeats map
-        setState(() {
-          bookedSeats = {};
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error fetching seat details: $e');
+      setState(() {
+        bookedSeats = {};
+        isLoading = false;
+      });
     }
+  } catch (e) {
+    print('Error fetching seat details: $e');
   }
+}
 
-  // Fetch the usernames for the booked seats
-  Future<void> _fetchUsernames() async {
-    try {
-      // Create a list of userId from the bookedSeats
-      List<String> userIds = bookedSeats.values.toList().cast<String>();
-      
-      for (var userId in userIds) {
+// Fetch the usernames for the booked seats
+Future<void> _fetchUsernames() async {
+  try {
+    // Iterate through the bookedSeats map where the key is the seat number and the value is a nested map
+    for (var seatNumber in bookedSeats.keys) {
+      // Access the 'userId' from the nested map for each seat
+      Map<String, dynamic> seatDetails = bookedSeats[seatNumber];
+      String userId = seatDetails['userId'];
+
+      if (userId != null) {
         // Fetch user document for each userId
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
@@ -84,10 +86,12 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
           });
         }
       }
-    } catch (e) {
-      print('Error fetching usernames: $e');
     }
+  } catch (e) {
+    print('Error fetching usernames: $e');
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -120,11 +124,10 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
           itemCount: totalSeats,
           itemBuilder: (context, index) {
             int seatNumber = index + 1;
+            bool isBooked = bookedSeats.containsKey(seatNumber.toString());
 
             return Card(
-              color: bookedSeats.containsKey(seatNumber.toString())
-                  ? Colors.red  // Red for booked seats
-                  : Colors.green,  // Green for available seats
+              color: isBooked ? Colors.red : Colors.green,  // Red for booked seats, Green for available seats
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -133,7 +136,8 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
                       'Seat $seatNumber',
                       style: TextStyle(color: Colors.white),
                     ),
-                    if (bookedSeats.containsKey(seatNumber.toString()))
+                    // Conditionally show the user details if the seat is booked
+                    if (isBooked) 
                       Column(
                         children: [
                           Text(
@@ -141,10 +145,15 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
                             style: TextStyle(color: Colors.white),
                           ),
                           Text(
-                            userNames[bookedSeats[seatNumber.toString()]] ?? 'Loading...',
+                            userNames[bookedSeats[seatNumber.toString()]['userId']] ?? 'Loading...',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                         ],
+                      )
+                    else 
+                      Text(
+                        'Seat not booked',
+                        style: TextStyle(color: Colors.white),
                       ),
                   ],
                 ),
@@ -155,4 +164,5 @@ class _SeatViewerPageState extends State<SeatViewerPage> {
       ),
     );
   }
+
 }

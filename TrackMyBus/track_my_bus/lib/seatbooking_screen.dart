@@ -55,6 +55,7 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
             .set({
           'bookedSeats': {}, // Initialize with an empty map
           'busId': widget.busId,
+          'current': -2,
           'date': widget.date,
           'timeSlot': widget.timeSlot,
         });

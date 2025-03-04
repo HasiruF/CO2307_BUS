@@ -8,11 +8,15 @@ class HaltDetailsPage extends StatefulWidget {
   final int haltIndex;
   final String busId;
   final LatLng haltCoordinates;
+  final bool isFirstHalt;
+  final bool isNextHalt;
 
   HaltDetailsPage({
     required this.haltIndex,
     required this.busId,
     required this.haltCoordinates,
+    required this.isFirstHalt,
+    required this.isNextHalt,
   });
 
   @override
@@ -27,17 +31,57 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
   List<String> gettingOffNames = [];
   bool isGettingOnExpanded = false;
   bool isGettingOffExpanded = false;
+  int? currentHalt;
 
   @override
   void initState() {
     super.initState();
     _fetchHaltBookingData();
+    _fetchCurrentHalt();
+  }
+
+  Future<void> _fetchCurrentHalt() async {
+    try {
+      String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
+
+      DocumentSnapshot seatDoc = await FirebaseFirestore.instance
+          .collection('seats')
+          .doc('${widget.busId}-$selectedDate-$timeSlot')
+          .get();
+
+      if (seatDoc.exists) {
+        setState(() {
+          currentHalt = seatDoc['current'];
+        });
+      }
+    } catch (e) {
+      print('Error fetching current halt: $e');
+    }
+  }
+
+  Future<void> _updateCurrentHalt(int newIndex) async {
+    try {
+      String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
+
+      await FirebaseFirestore.instance
+          .collection('seats')
+          .doc('${widget.busId}-$selectedDate-$timeSlot')
+          .update({'current': newIndex});
+
+      setState(() {
+        currentHalt = newIndex;
+      });
+    } catch (e) {
+      print('Error updating current halt: $e');
+    }
   }
 
   Future<void> _fetchHaltBookingData() async {
     try {
-      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
       String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
 
       QuerySnapshot seatSnapshot = await FirebaseFirestore.instance
           .collection('seats')
@@ -48,28 +92,22 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
 
       List<String> onNames = [];
       List<String> offNames = [];
-
       int onCount = 0;
       int offCount = 0;
 
-      // Iterate over seat bookings
       for (var doc in seatSnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
         Map<String, dynamic> bookedSeats = data['bookedSeats'] ?? {};
+
         for (var seat in bookedSeats.values) {
           if (seat['gettingOnHaltIndex'] == widget.haltIndex) {
             onCount++;
-            String userId = seat['userId'];
-            // Fetch user data from the 'users' collection
-            String userName = await _getUserName(userId);
+            String userName = await _getUserName(seat['userId']);
             onNames.add(userName);
           }
           if (seat['gettingOffHaltIndex'] == widget.haltIndex) {
             offCount++;
-            String userId = seat['userId'];
-            // Fetch user data from the 'users' collection
-            String userName = await _getUserName(userId);
+            String userName = await _getUserName(seat['userId']);
             offNames.add(userName);
           }
         }
@@ -92,10 +130,8 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
 
   Future<String> _getUserName(String userId) async {
     try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
 
       if (userDoc.exists) {
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
@@ -112,7 +148,7 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
   void _openGoogleMaps() async {
     final String url =
         'https://www.google.com/maps/dir/?api=1&destination=${widget.haltCoordinates.latitude},${widget.haltCoordinates.longitude}';
-    
+
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
     } else {
@@ -122,6 +158,8 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    
+
     return Scaffold(
       appBar: AppBar(title: Text('Halt Details')),
       body: isLoading
@@ -131,26 +169,21 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Halt Information Card
                   Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     elevation: 5,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            'Halt Details',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                          ),
+                          Text('Halt Details',
+                              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                           SizedBox(height: 10),
                           Divider(),
                           SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              // Getting On Column
                               Column(
                                 children: [
                                   GestureDetector(
@@ -159,15 +192,13 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
                                         isGettingOnExpanded = !isGettingOnExpanded;
                                       });
                                     },
-                                    child: Text(
-                                      '$gettingOnCount',
-                                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
-                                    ),
+                                    child: Text('$gettingOnCount',
+                                        style: TextStyle(
+                                            fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
                                   ),
                                   Text('Getting On', style: TextStyle(fontSize: 16)),
                                 ],
                               ),
-                              // Getting Off Column
                               Column(
                                 children: [
                                   GestureDetector(
@@ -176,28 +207,15 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
                                         isGettingOffExpanded = !isGettingOffExpanded;
                                       });
                                     },
-                                    child: Text(
-                                      '$gettingOffCount',
-                                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
-                                    ),
+                                    child: Text('$gettingOffCount',
+                                        style: TextStyle(
+                                            fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
                                   ),
                                   Text('Getting Off', style: TextStyle(fontSize: 16)),
                                 ],
                               ),
                             ],
                           ),
-                          SizedBox(height: 10),
-                          // If expanded, show the names
-                          if (isGettingOnExpanded) ...[
-                            Divider(),
-                            Text('Getting On Passengers:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ...gettingOnNames.map((name) => ListTile(title: Text(name))).toList(),
-                          ],
-                          if (isGettingOffExpanded) ...[
-                            Divider(),
-                            Text('Getting Off Passengers:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ...gettingOffNames.map((name) => ListTile(title: Text(name))).toList(),
-                          ],
                         ],
                       ),
                     ),
@@ -205,15 +223,52 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
 
                   SizedBox(height: 20),
 
-                  // Open Google Maps Button
                   ElevatedButton.icon(
                     onPressed: _openGoogleMaps,
                     icon: Icon(Icons.map),
                     label: Text('Open in Google Maps'),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                  ),
+
+                  if (widget.isFirstHalt)
+                  ElevatedButton(
+                    onPressed: () async {
+                      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
+                      String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                      
+                      await FirebaseFirestore.instance
+                          .collection('seats')
+                          .where('busId', isEqualTo: widget.busId)
+                          .where('date', isEqualTo: selectedDate)
+                          .where('timeSlot', isEqualTo: timeSlot)
+                          .get()
+                          .then((snapshot) {
+                        for (var doc in snapshot.docs) {
+                          doc.reference.update({'current': -1}); // Mark as started at first halt
+                        }
+                      });
+                    },
+                    child: Text('Start Bus'),
+                  ),
+                
+                if (widget.isNextHalt)
+                  ElevatedButton(
+                    onPressed: () async {
+                      String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
+                      String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                      
+                      await FirebaseFirestore.instance
+                          .collection('seats')
+                          .where('busId', isEqualTo: widget.busId)
+                          .where('date', isEqualTo: selectedDate)
+                          .where('timeSlot', isEqualTo: timeSlot)
+                          .get()
+                          .then((snapshot) {
+                        for (var doc in snapshot.docs) {
+                          doc.reference.update({'current': widget.haltIndex}); // Mark halt as reached
+                        }
+                      });
+                    },
+                    child: Text('Arrived at Halt'),
                   ),
                 ],
               ),
