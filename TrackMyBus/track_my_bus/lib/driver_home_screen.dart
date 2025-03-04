@@ -7,6 +7,7 @@ import 'home_screen.dart';
 import 'drive_route_screen.dart';
 import 'seatviewing_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'halt_details_screen.dart';
 
 
 class DriverHomePage extends StatefulWidget {
@@ -369,24 +370,37 @@ class _DriverMapPageState extends State<DriverMapPage> {
 
       for (var busDoc in busSnapshot.docs) {
         List<dynamic> haltLocations = busDoc['haltLocations'] ?? [];
+
         setState(() {
           _haltLocations = haltLocations
               .map((location) => LatLng(location.latitude, location.longitude))
               .toList();
 
-          for (var halt in _haltLocations) {
+          // Add markers for each halt
+          for (int i = 0; i < _haltLocations.length; i++) {
             _markers.add(Marker(
-              markerId: MarkerId(halt.toString()),
-              position: halt,
+              markerId: MarkerId('halt_$i'),
+              position: _haltLocations[i],
               icon: _haltIcon ?? BitmapDescriptor.defaultMarker,
-              infoWindow: InfoWindow(title: 'Halt'),
+              infoWindow: InfoWindow(title: 'Halt $i'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HaltDetailsPage(
+                      haltIndex: i, // Pass current halt index
+                      busId: busDoc.id,
+                      haltCoordinates: _haltLocations[i], // Pass halt coordinates
+                    ),
+                  ),
+                );
+              },
             ));
-          }
 
-          if (_haltLocations.isNotEmpty) {
+            // Create polyline from user location to this halt
             _polylines.add(Polyline(
-              polylineId: PolylineId("driver_to_first_halt"),
-              points: [_userLocation, _haltLocations[0]],
+              polylineId: PolylineId("user_to_halt_$i"),
+              points: [_userLocation, _haltLocations[i]],
               color: Colors.blue,
               width: 5,
             ));

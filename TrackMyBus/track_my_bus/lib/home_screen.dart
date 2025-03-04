@@ -5,6 +5,7 @@ import 'login_screen.dart';
 import 'seatbooking_screen.dart';
 import 'driver_home_screen.dart';
 import 'halt_selection_screen.dart';
+import 'user_map_screen.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -152,6 +153,8 @@ class _SelectionScreenState extends State<SelectionScreen> {
   String? selectedRoute;
   String? selectedOnHalt;
   String? selectedOffHalt;
+  int? gettingOnHaltIndex;
+  int? gettingOffHaltIndex;
   String selectedDate = '2024-11-15';
   String selectedTimeSlot = 'morning';
   List<Map<String, String>> busRoutes = [];
@@ -185,11 +188,24 @@ class _SelectionScreenState extends State<SelectionScreen> {
   void _onHaltSelected(int haltIndex, String haltType) {
     setState(() {
       if (haltType == 'gettingOn') {
+        gettingOnHaltIndex = haltIndex;
         selectedOnHalt = 'Halt ${haltIndex + 1}';
       } else if (haltType == 'gettingOff') {
+        gettingOffHaltIndex = haltIndex;
         selectedOffHalt = 'Halt ${haltIndex + 1}';
       }
     });
+  }
+
+  bool _isValidHaltSelection() {
+    if (gettingOnHaltIndex == null || gettingOffHaltIndex == null) {
+      return false;
+    }
+    if (selectedTimeSlot == 'morning') {
+      return gettingOffHaltIndex! > gettingOnHaltIndex!;
+    } else {
+      return gettingOffHaltIndex! < gettingOnHaltIndex!;
+    }
   }
 
   @override
@@ -203,7 +219,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Bus Route Dropdown
             Text('Select Bus Route:'),
             busRoutes.isEmpty
                 ? CircularProgressIndicator()
@@ -229,9 +244,9 @@ class _SelectionScreenState extends State<SelectionScreen> {
               onPressed: () async {
                 DateTime? pickedDate = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now().add(Duration(days: 1)), // Tomorrow
-                  firstDate: DateTime.now().add(Duration(days: 1)),   // Tomorrow
-                  lastDate: DateTime.now().add(Duration(days: 3)),   // In 3 days
+                  initialDate: DateTime.now().add(Duration(days: 0)),
+                  firstDate: DateTime.now().add(Duration(days: 0)),
+                  lastDate: DateTime.now().add(Duration(days: 30)),
                 );
 
                 if (pickedDate != null) {
@@ -243,7 +258,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
               child: Text('Pick Date'),
             ),
             Text('Selected Date: $selectedDate'),
-
             SizedBox(height: 20),
 
             // Time Slot Dropdown
@@ -263,6 +277,8 @@ class _SelectionScreenState extends State<SelectionScreen> {
               }).toList(),
             ),
 
+            SizedBox(height: 20),
+
             // Getting On Halt Button
             ElevatedButton(
               onPressed: selectedRoute == null
@@ -275,7 +291,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                           builder: (context) => MapSelectionScreen(
                             busId: busId,
                             userId: widget.userId,
-                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOn'), // Pass 'gettingOn' halt type
+                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOn'),
                           ),
                         ),
                       );
@@ -283,7 +299,6 @@ class _SelectionScreenState extends State<SelectionScreen> {
               child: Text('Select Getting On Halt'),
             ),
             Text('Selected Getting On Halt: $selectedOnHalt'),
-
             SizedBox(height: 20),
 
             // Getting Off Halt Button
@@ -298,7 +313,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
                           builder: (context) => MapSelectionScreen(
                             busId: busId,
                             userId: widget.userId,
-                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOff'), // Pass 'gettingOff' halt type
+                            onHaltSelected: (index, type) => _onHaltSelected(index, 'gettingOff'),
                           ),
                         ),
                       );
@@ -311,7 +326,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
             // Button to navigate to the booking page
             Center(
               child: ElevatedButton(
-                onPressed: selectedRoute == null || selectedOnHalt == null || selectedOffHalt == null
+                onPressed: selectedRoute == null || selectedOnHalt == null || selectedOffHalt == null || !_isValidHaltSelection()
                     ? null
                     : () {
                         String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
@@ -332,6 +347,18 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 child: Text('Go to Seat Selection'),
               ),
             ),
+
+            // Display error if halt selection is invalid
+            if (selectedOnHalt != null && selectedOffHalt != null && !_isValidHaltSelection())
+              Padding(
+                padding: const EdgeInsets.only(top: 10.0),
+                child: Text(
+                  selectedTimeSlot == 'morning'
+                      ? 'Invalid Trip direction'
+                      : 'Invalid Trip direction',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+              ),
           ],
         ),
       ),
@@ -365,7 +392,7 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
         for (var entry in bookedSeats.entries) {
           Map<String, dynamic> seatDetails = entry.value;
 
-          // Check if the userId exists inside the nested maps (6, 7, etc.)
+          
           if (seatDetails['userId'] == widget.userId) {
             // Fetch the corresponding bus data
             String busId = seatData['busId'];
@@ -377,14 +404,15 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
 
               // Add to bookings list
               bookings.add({
+                'busId':busId,
                 'documentId': doc.id,
                 'routeName': routeName,
                 'busNumber': busNumber,
                 'date': seatData['date'],
                 'timeSlot': seatData['timeSlot'],
                 'seatNumber': entry.key,  // Storing the seat number as well
-                'gettingOnHalt': seatData['gettingOnHaltIndex'],
-                'gettingOffHalt': seatData['gettingOffHaltIndex'],
+                'gettingOnHalt': seatDetails['gettingOnHaltIndex'],
+                'gettingOffHalt': seatDetails['gettingOffHaltIndex'],
               });
             }
           }
@@ -426,6 +454,26 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
     }
   }
 
+  // Navigate to the BusRouteMapPage when a booking is tapped
+  void _navigateToBusRouteMapPage(Map<String, dynamic> booking) {
+    if (booking != null) {
+      print('booking: $booking');
+    } else {
+      print('booking is null');
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BusRouteMapPage(
+          userId: widget.userId,
+          busId: booking['busId'],  // Pass the bus ID
+          gettingOnHaltIndex: booking['gettingOnHalt'],  // Pass the getting on halt index
+          gettingOffHaltIndex: booking['gettingOffHalt'],  // Pass the getting off halt index
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -451,6 +499,9 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
                 return ListTile(
                   title: Text('${booking['routeName']} - ${booking['busNumber']}'),
                   subtitle: Text('Date: ${booking['date']}, Time Slot: ${booking['timeSlot']}'),
+                  onTap: () {
+                    _navigateToBusRouteMapPage(booking);  // Navigate on tap
+                  },
                   trailing: IconButton(
                     icon: Icon(Icons.delete, color: Colors.red),
                     onPressed: () {
