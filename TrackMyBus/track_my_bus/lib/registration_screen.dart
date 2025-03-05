@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_screen.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class RegistrationScreen extends StatefulWidget {
   @override
@@ -18,13 +19,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       try {
-        // Check if location permission is granted
-      LocationPermission permission = await Geolocator.checkPermission();
-      
-      if (permission == LocationPermission.denied) {
-        // Request permission if not granted
-        permission = await Geolocator.requestPermission();
-      }
+        // Request location permission
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          permission = await Geolocator.requestPermission();
+        }
+
         // Register user with Firebase Authentication
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
@@ -36,12 +36,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // Get the user's current location
         Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
 
-        // Save user data to Firestore with GeoPoint
+        // Get FCM token
+        String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+        // Save user data to Firestore
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
           'usertype': "Client",
-          'location': GeoPoint(position.latitude, position.longitude),  // Firestore GeoPoint
+          'location': GeoPoint(position.latitude, position.longitude),
+          'fcmToken': fcmToken, // Store FCM Token
         });
 
         // Navigate to HomePage
@@ -51,7 +55,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             builder: (context) => HomePage(userId: uid),
           ),
         );
-        print('User registered and details saved to Firestore');
+
+        print('User registered, FCM token saved.');
 
       } catch (e) {
         print('Registration failed: $e');

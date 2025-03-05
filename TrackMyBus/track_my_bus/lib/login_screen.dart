@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart'; 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'registration_screen.dart';
 import 'home_screen.dart';
 
@@ -11,33 +12,33 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  Future<void> _updateUserLocation(String userId) async {
+  Future<void> _updateUserData(String userId) async {
     try {
-      // Check if location permission is granted
+      // Request location permission
       LocationPermission permission = await Geolocator.checkPermission();
-      
-      if (permission == LocationPermission.denied) {
-        // Request permission if not granted
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
         permission = await Geolocator.requestPermission();
       }
+
       // Get current location
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      
-      // Get Firestore instance
-      FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-      // Update the location field for the user
-      await firestore.collection('users').doc(userId).update({
-        'location': GeoPoint(position.latitude, position.longitude), // Set the location as GeoPoint
+      // Get the latest FCM token
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Update Firestore document with location and FCM token
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'location': GeoPoint(position.latitude, position.longitude),
+        'fcmToken': fcmToken, // Update FCM Token
       });
 
-      print('User location updated');
+      print('User location and FCM token updated.');
     } catch (e) {
-      print('Error updating location: $e');
+      print('Error updating user data: $e');
     }
   }
 
@@ -45,28 +46,29 @@ class _LoginPageState extends State<LoginPage> {
     if (_formKey.currentState?.validate() ?? false) {
       try {
         // Authenticate with Firebase
-        UserCredential userCredential = await FirebaseAuth.instance
-            .signInWithEmailAndPassword(
-                email: _usernameController.text.trim(),
-                password: _passwordController.text.trim());
+        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
 
         print('Login successful: ${userCredential.user?.email}');
-        String userEmail = userCredential.user!.email!;
+        String userId = userCredential.user!.uid;
 
-        // Update the user's location in Firestore
-        await _updateUserLocation(userCredential.user!.uid);
+        // Update the user's location and FCM token
+        await _updateUserData(userId);
 
+        // Navigate to HomePage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomePage(userId: userCredential.user!.uid),
+            builder: (context) => HomePage(userId: userId),
           ),
         );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login successful')),
         );
       } catch (e) {
-        // Error if login fails
         print('Error: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: $e')),
@@ -89,11 +91,11 @@ class _LoginPageState extends State<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(labelText: 'UserEmail'),
+                controller: _emailController,
+                decoration: InputDecoration(labelText: 'Email'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a Email';
+                    return 'Please enter an email';
                   }
                   return null;
                 },
@@ -117,7 +119,6 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 10),
               TextButton(
                 onPressed: () {
-                  // Navigate to the Registration Page
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => RegistrationScreen()),

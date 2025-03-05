@@ -5,11 +5,37 @@ import 'login_screen.dart';
 import 'home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Initialize Firebase Messaging
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+  
+  // Request permission for iOS (if you plan to support iOS)
+  await messaging.requestPermission();
+  
+  // Get FCM token (you can store this token in Firestore to send notifications later)
+  String? token = await messaging.getToken();
+  print("FCM Token: $token");
+  
+  // Set up foreground notification handler
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('Received message: ${message.notification?.title}, ${message.notification?.body}');
+    // You can handle foreground notifications here (e.g., showing a dialog or updating UI)
+  });
+
+  // Set up background notification handler
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print('Notification clicked: ${message.notification?.title}');
+    // You can handle background notifications here (e.g., navigate to a specific screen)
+  });
+
   runApp(MyApp());
 }
 
@@ -37,5 +63,4 @@ class AuthWrapper extends StatelessWidget {
       },
     );
   }
-  
 }

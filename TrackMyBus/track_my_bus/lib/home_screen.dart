@@ -6,6 +6,8 @@ import 'seatbooking_screen.dart';
 import 'driver_home_screen.dart';
 import 'halt_selection_screen.dart';
 import 'user_map_screen.dart';
+import 'package:geolocator/geolocator.dart'; 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -460,24 +462,58 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
   }
 
   // Navigate to the BusRouteMapPage when a booking is tapped
-  void _navigateToBusRouteMapPage(Map<String, dynamic> booking) {
+  void _navigateToBusRouteMapPage(Map<String, dynamic> booking) async {
     if (booking != null) {
       print('booking: $booking');
     } else {
       print('booking is null');
+      return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BusRouteMapPage(
-          userId: widget.userId,
-          busId: booking['busId'],  // Pass the bus ID
-          gettingOnHaltIndex: booking['gettingOnHalt'],  // Pass the getting on halt index
-          gettingOffHaltIndex: booking['gettingOffHalt'],  // Pass the getting off halt index
+
+    try {
+      // Fetch the user's current location (e.g., using GPS)
+      LatLng currentLocation = await _getCurrentLocation();
+
+      // Update the location in Firebase Firestore
+      await FirebaseFirestore.instance.collection('users').doc(widget.userId).update({
+        'location': GeoPoint(currentLocation.latitude, currentLocation.longitude),
+      });
+
+      // After updating, print the new location
+      print('User location updated to: $currentLocation');
+
+      // Navigate to BusRouteMapPage with updated location
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BusRouteMapPage(
+            userId: widget.userId,
+            busId: booking['busId'],
+            gettingOnHaltIndex: booking['gettingOnHalt'],
+            gettingOffHaltIndex: booking['gettingOffHalt'],
+            initialUserLocation: currentLocation, // Pass the updated location
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      print('Error updating user location: $e');
+    }
   }
+
+  // Function to get the current location using a package like geolocator
+  Future<LatLng> _getCurrentLocation() async {
+    // Assuming you are using geolocator package for GPS
+    try {
+      var position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (e) {
+      print('Error fetching current location: $e');
+      throw 'Could not get current location';
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {

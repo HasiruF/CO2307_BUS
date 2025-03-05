@@ -8,12 +8,14 @@ class BusRouteMapPage extends StatefulWidget {
   final String busId;
   final int gettingOnHaltIndex;
   final int gettingOffHaltIndex;
+  final LatLng initialUserLocation; 
 
   BusRouteMapPage({
     required this.userId,
     required this.busId,
     required this.gettingOnHaltIndex,
     required this.gettingOffHaltIndex,
+    required this.initialUserLocation,  
   });
 
   @override
@@ -35,7 +37,7 @@ class _BusRouteMapPageState extends State<BusRouteMapPage> {
   void initState() {
     super.initState();
     _loadCustomIcons();
-    _fetchUserLocation();
+    _userLocation = widget.initialUserLocation;  
     _fetchBusRouteDetails();
   }
 
@@ -53,34 +55,6 @@ class _BusRouteMapPageState extends State<BusRouteMapPage> {
       ImageConfiguration(size: Size(5, 5)),
       'assets/user_icon.png',
     );
-  }
-
-  // Fetch user location from Firestore
-  Future<void> _fetchUserLocation() async {
-    try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .get();
-
-      if (userDoc.exists) {
-        GeoPoint location = userDoc['location'];
-        setState(() {
-          _userLocation = LatLng(location.latitude, location.longitude);
-          
-          _markers.add(Marker(
-            markerId: MarkerId('user_location'),
-            position: _userLocation,
-            icon: _userIcon ?? BitmapDescriptor.defaultMarker,
-            infoWindow: InfoWindow(title: 'Your Location'),
-          ));
-        });
-      } else {
-        print('User document not found');
-      }
-    } catch (e) {
-      print('Error fetching user location: $e');
-    }
   }
 
   // Fetch bus and halts data from Firestore
@@ -111,16 +85,24 @@ class _BusRouteMapPageState extends State<BusRouteMapPage> {
             ));
 
             // Getting off halt
-            /*_markers.add(Marker(
+            _markers.add(Marker(
               markerId: MarkerId('getting_off_halt'),
               position: _halts[widget.gettingOffHaltIndex],
               icon: _haltIcon ?? BitmapDescriptor.defaultMarker,
               infoWindow: InfoWindow(title: 'Getting Off Halt', onTap: () {
                 _openGoogleMapsDirections(_halts[widget.gettingOffHaltIndex]);
               }),
-            ));*/
+            ));
+
+            _markers.add(Marker(
+              markerId: MarkerId('user_location'),
+              position: _userLocation,
+              icon: _userIcon ?? BitmapDescriptor.defaultMarker,
+              infoWindow: InfoWindow(title: 'Your Location'),
+            ));
           }
 
+          
           // Fetching driver location from users collection
           _fetchDriverLocation(busDoc['driver_id']);
           

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class HaltDetailsPage extends StatefulWidget {
   final int haltIndex;
@@ -155,6 +156,33 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
       print('Could not open Google Maps.');
     }
   }
+  Future<void> sendNotificationToUsers(List<String> userIds, String message) async {
+    try {
+      for (String userId in userIds) {
+        DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance.collection('users').doc(userId).get();
+
+        if (userDoc.exists) {
+          String? fcmToken = userDoc['fcmToken']; // Assuming you store fcmToken for each user
+          if (fcmToken != null && fcmToken.isNotEmpty) {
+            
+            await FirebaseMessaging.instance.sendMessage(
+              to: fcmToken,
+              data: {
+                'title': 'Bus Update',
+                'body': message,
+              },
+            );
+            print('Notification sent to user: $userId');
+          }
+        }
+      }
+    } catch (e) {
+      print('Error sending notification: $e');
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -234,23 +262,44 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
                     onPressed: () async {
                       String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
                       String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-                      
+
+                      // Query the seats collection to find users who have booked seats on the selected date and time slot
                       await FirebaseFirestore.instance
                           .collection('seats')
                           .where('busId', isEqualTo: widget.busId)
                           .where('date', isEqualTo: selectedDate)
                           .where('timeSlot', isEqualTo: timeSlot)
                           .get()
-                          .then((snapshot) {
+                          .then((snapshot) async {
                         for (var doc in snapshot.docs) {
-                          doc.reference.update({'current': -1}); // Mark as started at first halt
+                          // Update the current halt to mark the bus as started at the first halt
+                          await doc.reference.update({'current': -1});
+
+                          // Retrieve the booked seats for each document
+                          Map<String, dynamic> bookedSeats = doc['bookedSeats'] ?? {};
+
+                          // List to hold the userIds for users who are getting on
+                          List<String> userIdsToNotify = [];
+
+                          // Iterate over the booked seats to find users who are getting on at the current halt
+                          bookedSeats.forEach((key, value) {
+                            if (value['gettingOnHaltIndex'] == widget.haltIndex) {
+                              // Add the userId of the user who is getting on
+                              userIdsToNotify.add(value['userId']);
+                            }
+                          });
+
+                          // Send notifications to users who are getting on
+                          if (userIdsToNotify.isNotEmpty) {
+                            sendNotificationToUsers(userIdsToNotify, 'The bus has started its journey. Stay tuned!');
+                          }
                         }
                       });
                     },
                     child: Text('Start Bus'),
                   ),
                 
-                if (widget.isNextHalt)
+                  if (widget.isNextHalt)
                   ElevatedButton(
                     onPressed: () async {
                       String timeSlot = DateTime.now().hour < 12 ? 'morning' : 'evening';
@@ -270,6 +319,7 @@ class _HaltDetailsPageState extends State<HaltDetailsPage> {
                     },
                     child: Text('Arrived at Halt'),
                   ),
+
                 ],
               ),
             ),
