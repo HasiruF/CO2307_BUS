@@ -36,8 +36,8 @@ android {
 
 dependencies {
     // Firebase and Google Sign-In dependencies
-    implementation 'com.google.firebase:firebase-auth:23.0.5'  // Firebase Authentication
-    implementation 'com.google.android.gms:play-services-auth:20.5 .0'  // Google Sign-In
+    implementation 'com.google.firebase:firebase-auth:22.1.0'  // Firebase Authentication
+    implementation 'com.google.android.gms:play-services-auth:20.6.0'  // Google Sign-In
     implementation platform('com.google.firebase:firebase-bom:32.1.0')  // Firebase BOM for version management
     implementation 'com.google.android.gms:play-services-maps:18.0.0'
     //implementation 'com.google.firebase:firebase-core:22.1.0'  // Firebase Core

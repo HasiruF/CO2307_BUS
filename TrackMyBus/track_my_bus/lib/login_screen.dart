@@ -121,7 +121,8 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => RegistrationScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => RegistrationScreen()),
                   );
                 },
                 child: Text('Go to Registration Page'),

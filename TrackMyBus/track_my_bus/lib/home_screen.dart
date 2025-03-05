@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'seatbooking_screen.dart';
 import 'driver_home_screen.dart';
+import 'UserProfileScreen.dart';
 import 'halt_selection_screen.dart';
 import 'user_map_screen.dart';
 import 'package:geolocator/geolocator.dart'; 
@@ -22,7 +23,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String userName = '';
   String userEmail = '';
-  String userType = ''; 
+  String userType = '';
 
   //selected tab
   int _currentIndex = 0;
@@ -33,7 +34,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _checkUserType(); // Check user type 
+    _checkUserType(); // Check user type
     _pages = [
       UserBookingsPage(
         userId: widget.userId,
@@ -59,7 +60,8 @@ class _HomePageState extends State<HomePage> {
           //Navigate to driverHomePage
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => DriverHomePage(userId: widget.userId)),
+            MaterialPageRoute(
+                builder: (context) => DriverHomePage(userId: widget.userId)),
           );
         } else {
           // Fetch and display user details for "Client"
@@ -128,19 +130,84 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
-   @override
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String username = "";
+  String email = "";
+  String emergencyContact = "";
+  String profileImageUrl = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  void _loadUserProfile() async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(user.uid).get();
+      setState(() {
+        username = userDoc["username"] ?? "";
+        email = userDoc["email"] ?? "";
+        emergencyContact = userDoc["emergency_contact"] ?? "";
+        profileImageUrl = userDoc["profile_image"] ?? "";
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text('Profile Tab'),
+    return Scaffold(
+      appBar: AppBar(title: Text("Profile")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: CircleAvatar(
+                radius: 50,
+                backgroundImage: profileImageUrl.isNotEmpty
+                    ? NetworkImage(profileImageUrl)
+                    : null,
+                child: profileImageUrl.isEmpty
+                    ? Icon(Icons.person, size: 50)
+                    : null,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text("Username: $username", style: TextStyle(fontSize: 18)),
+            SizedBox(height: 10),
+            Text("Email: $email", style: TextStyle(fontSize: 18)),
+            SizedBox(height: 10),
+            Text("Emergency Contact: $emergencyContact",
+                style: TextStyle(fontSize: 18)),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UserProfileScreen()),
+                ).then((_) => _loadUserProfile());
+              },
+              child: Text("Edit Profile"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
-
-
 
 class SelectionScreen extends StatefulWidget {
   final String userId;
@@ -336,7 +403,8 @@ class _SelectionScreenState extends State<SelectionScreen> {
                 onPressed: selectedRoute == null || selectedOnHalt == null || selectedOffHalt == null || !_isValidHaltSelection()
                     ? null
                     : () {
-                        String busId = busRoutes.firstWhere((route) => route['route_name'] == selectedRoute)['busId']!;
+                        String busId = busRoutes.firstWhere((route) =>
+                            route['route_name'] == selectedRoute)['busId']!;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -374,6 +442,7 @@ class _SelectionScreenState extends State<SelectionScreen> {
 }
 
 
+
 class UserBookingsPage extends StatefulWidget {
   final String userId;
 
@@ -389,8 +458,8 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
     List<Map<String, dynamic>> bookings = [];
 
     try {
-      // Fetch all seats data from Firestore
-      QuerySnapshot seatSnapshot = await FirebaseFirestore.instance.collection('seats').get();
+      QuerySnapshot seatSnapshot =
+          await FirebaseFirestore.instance.collection('seats').get();
       for (var doc in seatSnapshot.docs) {
         Map<String, dynamic> seatData = doc.data() as Map<String, dynamic>;
         Map<String, dynamic> bookedSeats = seatData['bookedSeats'] ?? {};
@@ -435,11 +504,13 @@ class _UserBookingsPageState extends State<UserBookingsPage> {
   // Cancel booking asynchronously
   Future<void> _cancelBooking(String documentId, String seatNumber) async {
     try {
-      DocumentReference docRef = FirebaseFirestore.instance.collection('seats').doc(documentId);
+      DocumentReference docRef =
+          FirebaseFirestore.instance.collection('seats').doc(documentId);
       DocumentSnapshot docSnapshot = await docRef.get();
 
       if (docSnapshot.exists) {
-        Map<String, dynamic> seatData = docSnapshot.data() as Map<String, dynamic>;
+        Map<String, dynamic> seatData =
+            docSnapshot.data() as Map<String, dynamic>;
         Map<String, dynamic> bookedSeats = seatData['bookedSeats'] ?? {};
 
         // Remove booking for the specified seat
