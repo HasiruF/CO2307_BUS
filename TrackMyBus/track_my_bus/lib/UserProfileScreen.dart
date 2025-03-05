@@ -35,12 +35,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (user != null) {
       DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(user.uid).get();
-      setState(() {
-        _usernameController.text = userDoc["username"] ?? "";
-        _emailController.text = userDoc["email"] ?? "";
-        _emergencyContactController.text = userDoc["emergency_contact"] ?? "";
-        _profileImageUrl = userDoc["profile_image"] ?? "";
-      });
+      if (userDoc.exists) {
+        setState(() {
+          _usernameController.text = userDoc["username"] ?? "";
+          _emailController.text = userDoc["email"] ?? "";
+          _emergencyContactController.text = userDoc["emergency_contact"] ?? "";
+          _profileImageUrl = userDoc["profile_image"] ?? "";
+        });
+      }
     }
   }
 
@@ -74,7 +76,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     User? user = _auth.currentUser;
     if (user != null) {
       try {
-        String? imageUrl;
+        String? imageUrl = _profileImageUrl; // Keep existing profile image
+
+        // Upload new image if selected
         if (_image != null) {
           imageUrl = await _uploadProfileImage(_image!);
         }
@@ -83,21 +87,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           'username': _usernameController.text,
           'email': _emailController.text,
           'emergency_contact': _emergencyContactController.text,
-          if (imageUrl != null) 'profile_image': imageUrl,
+          'profile_image': imageUrl, // Ensure profile image is updated
         }, SetOptions(merge: true));
 
         if (_passwordController.text.isNotEmpty) {
           await user.updatePassword(_passwordController.text);
         }
 
+        // Update UI with new profile data
+        setState(() {
+          _profileImageUrl = imageUrl ?? _profileImageUrl;
+          _image = null; // Reset selected image
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Profile updated successfully")),
         );
-
-        Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error updating profile: \$e")),
+          SnackBar(content: Text("Error updating profile: $e")),
         );
       }
     }
@@ -111,7 +119,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Edit Profile")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -122,7 +130,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 backgroundImage: _image != null
                     ? FileImage(_image!)
                     : (_profileImageUrl.isNotEmpty
-                        ? NetworkImage(_profileImageUrl)
+                        ? NetworkImage(_profileImageUrl) as ImageProvider
                         : null),
                 child: _image == null && _profileImageUrl.isEmpty
                     ? Icon(Icons.camera_alt, size: 50)
@@ -138,6 +146,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               controller: _emailController,
               decoration: InputDecoration(labelText: "Email"),
               keyboardType: TextInputType.emailAddress,
+              readOnly: true, // Prevents changing email
             ),
             TextField(
               controller: _passwordController,
